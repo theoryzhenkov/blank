@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Small Promo Tile</title>
+  <link rel="stylesheet" href="../fonts.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 440px;
+      height: 280px;
+      overflow: hidden;
+      background: #f7f7f7;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      z-index: 1;
+    }
+    .icon {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 0.25rem;
+    }
+    .title {
+      font-size: 1.75rem;
+      font-weight: 400;
+      color: #222;
+    }
+    .title em {
+      font-weight: 500;
+      font-style: italic;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      font-weight: 300;
+      color: #999;
+      letter-spacing: 0.04em;
+      text-align: center;
+      max-width: 320px;
+    }
+    .wave-bg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.12;
+    }
+  </style>
+</head>
+<body>
+  <svg class="wave-bg" viewBox="0 0 440 280" preserveAspectRatio="none">
+    <path d="M0,120 Q110,80 220,140 T440,110" fill="none" stroke="#89B199" stroke-width="2.5"/>
+    <path d="M0,160 Q130,130 260,180 T440,155" fill="none" stroke="#89B199" stroke-width="2"/>
+    <path d="M0,200 Q100,170 220,210 T440,190" fill="none" stroke="#89B199" stroke-width="1.5"/>
+  </svg>
+  <div class="content">
+    <img class="icon" src="../icons/icon-128.png" alt="">
+    <div class="title"><em>Blank</em></div>
+    <div class="subtitle">A moment to pause before you browse</div>
+  </div>
+</body>
+</html>

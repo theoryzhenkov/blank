@@ -87,8 +87,10 @@ function markCurrentLetter(wordIndex, letterIndex) {
   document.querySelectorAll('.letter.current').forEach((el) => el.classList.remove('current'));
   const word = document.querySelectorAll('.word')[wordIndex];
   if (!word) return;
-  const letter = word.querySelectorAll('.letter')[letterIndex];
-  if (letter) letter.classList.add('current');
+  const letters = word.querySelectorAll('.letter');
+  // Clamp to last letter if index is past the end (e.g. backspacing into a completed word)
+  const idx = Math.min(letterIndex, letters.length - 1);
+  if (letters[idx]) letters[idx].classList.add('current');
 }
 
 function setupKeyboardListener() {
@@ -110,13 +112,23 @@ function setupKeyboardListener() {
     }
 
     if (
-      ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Tab', 'Escape', 'Enter', 'F5', 'F12'].includes(
+      ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Tab', 'Escape', 'F5', 'F12'].includes(
         e.key,
       )
     )
       return;
 
-    if (isCompleted) return;
+    if (isCompleted) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('confirmHint').classList.add('active');
+        if (settings.soundEnabled) playClick();
+        proceedToSite();
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') return;
 
     const container = document.getElementById('words');
     if (!container) return;
@@ -139,7 +151,15 @@ function setupKeyboardListener() {
         typedWords[currentWordIndex] = typedWords[currentWordIndex].slice(0, -1);
       } else if (currentWordIndex > 0) {
         currentWordIndex--;
-        currentLetterIndex = typedWords[currentWordIndex].length;
+        const prevLetters = words[currentWordIndex].querySelectorAll('.letter');
+        if (typedWords[currentWordIndex].length > 0) {
+          if (settings.soundEnabled) playClick();
+          currentLetterIndex = typedWords[currentWordIndex].length - 1;
+          prevLetters[currentLetterIndex].classList.remove('active');
+          typedWords[currentWordIndex] = typedWords[currentWordIndex].slice(0, -1);
+        } else {
+          currentLetterIndex = 0;
+        }
       }
       markCurrentLetter(currentWordIndex, currentLetterIndex);
     } else if (e.key.length === 1) {
@@ -181,7 +201,8 @@ function setupKeyboardListener() {
             (typed, i) => typed.toLowerCase() === selectedWords[i].toLowerCase(),
           );
           if (allCorrect) {
-            completeTyping();
+            showConfirmation();
+            return;
           }
         }
 
@@ -202,13 +223,37 @@ function setupKeyboardListener() {
   document.addEventListener('keydown', handleKeyPress, true);
 }
 
-async function completeTyping() {
+function showConfirmation() {
   if (isCompleted) return;
   isCompleted = true;
 
+  // Remove cursor indicator
+  document.querySelectorAll('.letter.current').forEach((el) => el.classList.remove('current'));
+
+  // Fade in enter glyph after a short pause
+  setTimeout(() => {
+    document.getElementById('confirmHint').classList.add('visible');
+  }, 400);
+
+  const status = document.getElementById('a11yStatus');
+  if (status) status.textContent = 'Press Enter to continue';
+
+  // Click handler on the glyph
+  document.getElementById('confirmHint').addEventListener('click', () => {
+    document.getElementById('confirmHint').classList.add('active');
+    if (settings.soundEnabled) playClick();
+    proceedToSite();
+  });
+}
+
+let choiceMade = false;
+
+async function proceedToSite() {
+  if (choiceMade) return;
+  choiceMade = true;
+
   if (stopWaveform) stopWaveform();
 
-  // Fade out
   const container = document.querySelector('.column-container');
   if (container) {
     container.style.opacity = '0';

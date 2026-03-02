@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Marquee Promo Tile</title>
+  <link rel="stylesheet" href="../fonts.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 1400px;
+      height: 560px;
+      overflow: hidden;
+      background: #f7f7f7;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .layout {
+      display: flex;
+      align-items: center;
+      gap: 5rem;
+      z-index: 1;
+    }
+    .left {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .icon {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 0.25rem;
+    }
+    .title {
+      font-size: 2.5rem;
+      font-weight: 400;
+      color: #222;
+    }
+    .title em {
+      font-weight: 500;
+      font-style: italic;
+    }
+    .subtitle {
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: #999;
+      letter-spacing: 0.03em;
+      max-width: 400px;
+      line-height: 1.5;
+    }
+    .right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .words {
+      display: flex;
+      flex-direction: row;
+      gap: 2.5rem;
+      font-size: 2.25rem;
+      font-weight: 600;
+    }
+    .word {
+      display: flex;
+      gap: 0.1em;
+      letter-spacing: 0.05em;
+    }
+    .letter {
+      color: #bbb;
+    }
+    .letter.active {
+      color: #B8D8C8;
+    }
+    .letter.current {
+      border-bottom: 3px solid #B8D8C8;
+      padding-bottom: 3px;
+      color: #999;
+    }
+    .wave-bg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.10;
+    }
+  </style>
+</head>
+<body>
+  <svg class="wave-bg" viewBox="0 0 1400 560" preserveAspectRatio="none">
+    <path d="M0,240 Q350,180 700,280 T1400,230" fill="none" stroke="#89B199" stroke-width="3"/>
+    <path d="M0,300 Q400,250 800,330 T1400,290" fill="none" stroke="#89B199" stroke-width="2.5"/>
+    <path d="M0,360 Q300,310 650,380 T1400,350" fill="none" stroke="#89B199" stroke-width="2"/>
+  </svg>
+  <div class="layout">
+    <div class="left">
+      <img class="icon" src="../icons/icon-128.png" alt="">
+      <div class="title"><em>Blank</em></div>
+      <div class="subtitle">A small ritual of intention before you browse. Type a few mindful words to pause and reflect.</div>
+    </div>
+    <div class="right">
+      <div class="words">
+        <div class="word">
+          <span class="letter active">f</span><span class="letter active">o</span><span class="letter active">r</span><span class="letter active">e</span><span class="letter active">s</span><span class="letter active">t</span>
+        </div>
+        <div class="word">
+          <span class="letter active">g</span><span class="letter active">l</span><span class="letter active">o</span><span class="letter current">w</span>
+        </div>
+        <div class="word">
+          <span class="letter">r</span><span class="letter">i</span><span class="letter">v</span><span class="letter">e</span><span class="letter">r</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

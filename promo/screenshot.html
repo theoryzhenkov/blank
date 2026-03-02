@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screenshot</title>
+  <link rel="stylesheet" href="../fonts.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 1280px;
+      height: 800px;
+      overflow: hidden;
+      background: #f7f7f7;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .words {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 3rem;
+      font-size: 3rem;
+      font-weight: 600;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+    .word {
+      display: flex;
+      gap: 0.1em;
+      letter-spacing: 0.05em;
+    }
+    .letter {
+      color: #bbb;
+      transition: color 0.3s ease;
+    }
+    .letter.active {
+      color: #FFB3C6;
+    }
+    .letter.current {
+      border-bottom: 3px solid #FFB3C6;
+      padding-bottom: 4px;
+      color: #999;
+    }
+    .confirm-hint {
+      margin-top: 2rem;
+      font-size: 2.5rem;
+      color: #ccc;
+    }
+
+    /* Decorative waveforms */
+    .wave-bg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.14;
+    }
+  </style>
+</head>
+<body>
+  <svg class="wave-bg" viewBox="0 0 1280 800" preserveAspectRatio="none">
+    <path d="M0,350 Q200,250 400,380 T800,320 T1280,360" fill="none" stroke="#FFB3C6" stroke-width="3"/>
+    <path d="M0,420 Q300,350 600,450 T1000,400 T1280,430" fill="none" stroke="#FFB3C6" stroke-width="2.5"/>
+    <path d="M0,300 Q250,380 500,290 T900,350 T1280,310" fill="none" stroke="#FFB3C6" stroke-width="2"/>
+  </svg>
+  <div class="container">
+    <div class="words">
+      <div class="word">
+        <span class="letter active">g</span><span class="letter active">l</span><span class="letter active">o</span><span class="letter active">w</span>
+      </div>
+      <div class="word">
+        <span class="letter active">m</span><span class="letter active">e</span><span class="letter active">a</span><span class="letter active">d</span><span class="letter active">o</span><span class="letter active">w</span>
+      </div>
+      <div class="word">
+        <span class="letter active">t</span><span class="letter active">i</span><span class="letter active">d</span><span class="letter active">e</span>
+      </div>
+      <div class="word">
+        <span class="letter active">c</span><span class="letter active">e</span><span class="letter active">d</span><span class="letter active">a</span><span class="letter current">r</span>
+      </div>
+      <div class="word">
+        <span class="letter">f</span><span class="letter">e</span><span class="letter">r</span><span class="letter">n</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
