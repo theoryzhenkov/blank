@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Blank</title>
+  <link rel="icon" type="image/png" href="icons/icon-32.png">
+  <link rel="stylesheet" href="fonts.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background-color: #FDFBF7;
+      color: #333;
+      line-height: 1.6;
+      padding: 3rem 2rem;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    em {
+      font-weight: 500;
+      font-style: italic;
+    }
+
+    /* --- Progress dots --- */
+    .progress {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #ddd;
+      transition: background-color 0.3s ease;
+    }
+
+    .dot.active {
+      background-color: #A8E6CF;
+    }
+
+    .dot.completed {
+      background-color: #bbb;
+    }
+
+    /* --- Steps --- */
+    .step {
+      position: absolute;
+      visibility: hidden;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s 0.3s;
+    }
+
+    .step.active {
+      position: relative;
+      visibility: visible;
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s 0s;
+    }
+
+    /* --- Headings --- */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .header img {
+      width: 48px;
+      height: 48px;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 400;
+      color: #222;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: #222;
+      margin-bottom: 1rem;
+    }
+
+    .body-text {
+      color: #555;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .accent-text {
+      color: #999;
+      font-size: 1rem;
+      font-style: italic;
+      margin-bottom: 2rem;
+    }
+
+    /* --- Presets (step 1) --- */
+    .instruction {
+      color: #555;
+      font-size: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .preset-list {
+      list-style: none;
+      margin-bottom: 1rem;
+    }
+
+    .preset-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background-color: white;
+      border-radius: 8px;
+      margin-bottom: 0.4rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .preset-item:hover {
+      background-color: #f8f8f6;
+    }
+
+    .preset-item input[type="checkbox"] {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .preset-item input[type="checkbox"]:checked {
+      background-color: #A8E6CF;
+      border-color: #A8E6CF;
+    }
+
+    .preset-item input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 6px;
+      height: 10px;
+      border: solid #333;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    .preset-label {
+      font-size: 1rem;
+      color: #444;
+    }
+
+    .toggle-all {
+      display: inline-block;
+      font-size: 0.875rem;
+      color: #999;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      padding: 0;
+      margin-bottom: 1.25rem;
+      transition: color 0.15s ease;
+    }
+
+    .toggle-all:hover {
+      color: #666;
+    }
+
+    /* Custom URL input */
+    .custom-url-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .custom-url-label {
+      font-size: 0.875rem;
+      color: #999;
+      margin-bottom: 0.5rem;
+    }
+
+    .custom-url-input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid #E0E0E0;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      background-color: white;
+      transition: border-color 0.3s ease;
+    }
+
+    .custom-url-input:focus {
+      outline: none;
+      border-color: #A8E6CF;
+    }
+
+    .input-invalid {
+      border-color: #FF6B6B !important;
+      transition: border-color 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .custom-urls-list {
+      list-style: none;
+      margin-top: 0.5rem;
+    }
+
+    .custom-url-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      color: #555;
+      background-color: white;
+      border-radius: 6px;
+      margin-bottom: 0.3rem;
+    }
+
+    .custom-url-remove {
+      background: none;
+      border: none;
+      color: #bbb;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0 0.2rem;
+      line-height: 1;
+      border-radius: 50%;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .custom-url-remove:hover {
+      background: #FFB6B6;
+      color: #fff;
+    }
+
+    /* --- Tips (step 2) --- */
+    .tips {
+      margin-bottom: 2rem;
+    }
+
+    .tip {
+      padding: 0.75rem 1rem;
+      border-left: 3px solid #A8E6CF;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+      color: #444;
+      line-height: 1.5;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 0.15em 0.4em;
+      font-family: inherit;
+      font-size: 0.85em;
+      background: #e8e8e8;
+      border-radius: 4px;
+      border: 1px solid #d0d0d0;
+    }
+
+    /* --- Navigation --- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2rem;
+    }
+
+    .btn-back {
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 1rem;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0.5rem 0;
+      transition: color 0.15s ease;
+    }
+
+    .btn-back:hover {
+      color: #666;
+    }
+
+    .btn-forward {
+      padding: 0.65rem 1.5rem;
+      background-color: #A8E6CF;
+      color: #333;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .btn-forward:hover {
+      background-color: #8DD6BD;
+    }
+
+    /* --- Dark mode --- */
+    html.dark body {
+      background-color: #1a1a1a;
+      color: #ccc;
+    }
+
+    html.dark h1,
+    html.dark h2 {
+      color: #ddd;
+    }
+
+    html.dark .body-text {
+      color: #999;
+    }
+
+    html.dark .accent-text {
+      color: #666;
+    }
+
+    html.dark .instruction {
+      color: #999;
+    }
+
+    html.dark .dot {
+      background-color: #444;
+    }
+
+    html.dark .dot.active {
+      background-color: #2d6b4f;
+    }
+
+    html.dark .dot.completed {
+      background-color: #666;
+    }
+
+    html.dark .preset-item {
+      background-color: #2a2a2a;
+    }
+
+    html.dark .preset-item:hover {
+      background-color: #333;
+    }
+
+    html.dark .preset-item input[type="checkbox"] {
+      border-color: #555;
+    }
+
+    html.dark .preset-item input[type="checkbox"]:checked {
+      background-color: #2d6b4f;
+      border-color: #2d6b4f;
+    }
+
+    html.dark .preset-item input[type="checkbox"]:checked::after {
+      border-color: #ccc;
+    }
+
+    html.dark .preset-label {
+      color: #aaa;
+    }
+
+    html.dark .toggle-all {
+      color: #666;
+    }
+
+    html.dark .toggle-all:hover {
+      color: #999;
+    }
+
+    html.dark .custom-url-input {
+      background-color: #2a2a2a;
+      border-color: #444;
+      color: #ccc;
+    }
+
+    html.dark .custom-url-input:focus {
+      border-color: #2d6b4f;
+    }
+
+    html.dark .custom-url-item {
+      background-color: #2a2a2a;
+      color: #aaa;
+    }
+
+    html.dark .custom-url-remove {
+      color: #666;
+    }
+
+    html.dark .custom-url-remove:hover {
+      background: #6b3333;
+      color: #eee;
+    }
+
+    html.dark .custom-url-label {
+      color: #666;
+    }
+
+    html.dark .tip {
+      border-left-color: #2d6b4f;
+      color: #aaa;
+    }
+
+    html.dark kbd {
+      background: #333;
+      border-color: #555;
+      color: #aaa;
+    }
+
+    html.dark .btn-back {
+      color: #666;
+    }
+
+    html.dark .btn-back:hover {
+      color: #999;
+    }
+
+    html.dark .btn-forward {
+      background-color: #2d6b4f;
+      color: #ccc;
+    }
+
+    html.dark .btn-forward:hover {
+      background-color: #388c63;
+    }
+
+    .input-hint {
+      font-size: 0.75rem;
+      color: #bbb;
+      margin-top: -0.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    html.dark .input-hint {
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="progress">
+    <div class="dot" data-dot="0"></div>
+    <div class="dot" data-dot="1"></div>
+    <div class="dot" data-dot="2"></div>
+    <div class="dot" data-dot="3"></div>
+  </div>
+
+  <!-- Step 0: Welcome -->
+  <div class="step active" data-step="0">
+    <div class="header">
+      <img src="icons/icon-48.png" alt="Blank icon">
+      <h1>Welcome to <em>Blank</em></h1>
+    </div>
+    <p class="body-text">
+      Blank gives you a moment to pause before visiting distracting sites.
+      When you navigate to a protected URL, you'll type a few mindful words before continuing.
+    </p>
+    <p class="accent-text">A small ritual of intention, instead of autopilot.</p>
+    <div class="nav">
+      <span></span>
+      <button class="btn-forward" data-next="1">Continue</button>
+    </div>
+  </div>
+
+  <!-- Step 1: Pick URLs -->
+  <div class="step" data-step="1">
+    <h2><em>Choose sites to pause on</em></h2>
+    <p class="instruction">Select the sites you visit on autopilot. You can always change these later in settings.</p>
+
+    <ul class="preset-list" id="presetList">
+      <li class="preset-item">
+        <input type="checkbox" id="preset-twitter" data-urls="twitter.com,x.com" checked>
+        <label class="preset-label" for="preset-twitter">twitter.com / x.com</label>
+      </li>
+      <li class="preset-item">
+        <input type="checkbox" id="preset-instagram" data-urls="instagram.com" checked>
+        <label class="preset-label" for="preset-instagram">instagram.com</label>
+      </li>
+      <li class="preset-item">
+        <input type="checkbox" id="preset-reddit" data-urls="reddit.com" checked>
+        <label class="preset-label" for="preset-reddit">reddit.com</label>
+      </li>
+      <li class="preset-item">
+        <input type="checkbox" id="preset-youtube" data-urls="youtube.com">
+        <label class="preset-label" for="preset-youtube">youtube.com</label>
+      </li>
+      <li class="preset-item">
+        <input type="checkbox" id="preset-tiktok" data-urls="tiktok.com">
+        <label class="preset-label" for="preset-tiktok">tiktok.com</label>
+      </li>
+    </ul>
+
+    <button class="toggle-all" id="toggleAll">Select all</button>
+
+    <div class="custom-url-section">
+      <p class="custom-url-label">Add a custom site</p>
+      <input type="text" class="custom-url-input" id="customUrlInput" placeholder="example.com">
+      <p class="input-hint">Press Enter to add</p>
+      <ul class="custom-urls-list" id="customUrlList"></ul>
+    </div>
+
+    <div class="nav">
+      <button class="btn-back" data-prev="0">Back</button>
+      <button class="btn-forward" data-next="2">Continue</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Tips -->
+  <div class="step" data-step="2">
+    <h2><em>A few tips</em></h2>
+    <div class="tips">
+      <div class="tip">Pin Blank to your toolbar for quick access to settings.</div>
+      <div class="tip">Click the extension icon anytime to open settings.</div>
+      <div class="tip">Press <kbd>Cmd</kbd>+<kbd>,</kbd> on the pause screen to jump to settings.</div>
+    </div>
+    <div class="nav">
+      <button class="btn-back" data-prev="1">Back</button>
+      <button class="btn-forward" data-next="3">Continue</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Done -->
+  <div class="step" data-step="3">
+    <h2><em>You're all set</em></h2>
+    <p class="body-text">
+      Blank is now active. Next time you visit a protected site, you'll see the pause screen.
+    </p>
+    <div class="nav">
+      <button class="btn-back" data-prev="2">Back</button>
+      <button class="btn-forward" id="closeBtn">Close</button>
+    </div>
+  </div>
+
+  <script type="module" src="welcome.js"></script>
+</body>
+</html>

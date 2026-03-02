@@ -1,1 +1,0 @@
-window.NUM_WORDS = 5; 

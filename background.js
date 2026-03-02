@@ -1,147 +1,134 @@
-// Store dynamic rules IDs
-let ruleIdCounter = 1;
-const RULE_ID_MAP = new Map();
+// Bypass tokens: Map<tabId, {url, expiresAt}>
+const bypassTokens = new Map();
+const BYPASS_TTL_MS = 30_000;
 
-// Handle extension icon click - open options page
+/** @param {string} a @param {string} b */
+function sameOrigin(a, b) {
+  try { return new URL(a).origin === new URL(b).origin; }
+  catch { return false; }
+}
+
+/**
+ * Escape regex-special chars except `*`, then convert `*` to `.*`.
+ */
+function escapeAndWildcard(str) {
+  return str
+    .replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&')
+    .replace(/\*/g, '.*');
+}
+
+/**
+ * Convert a user-entered pattern (e.g. "twitter.com") into a RegExp that
+ * matches the full URL including optional subdomains.
+ *
+ * Rules:
+ *  - Dots are escaped
+ *  - `*` becomes `.*`
+ *  - Pattern is wrapped to match optional protocol + optional subdomains
+ *  - Anchored to prevent partial domain matches (e.g. "nottwitter.com")
+ */
+function patternToRegex(pattern) {
+  const trimmed = pattern.trim();
+  if (!trimmed) return null;
+
+  // If the pattern includes a protocol, extract and preserve it
+  if (/^https?:\/\//i.test(trimmed)) {
+    const match = trimmed.match(/^(https?:\/\/)(.*)/i);
+    const protocol = escapeAndWildcard(match[1]);
+    const rest = escapeAndWildcard(match[2]);
+    return new RegExp(`^${protocol}([^/]*\\.)?${rest}(/.*)?$`, 'i');
+  }
+
+  // Otherwise, match http(s) + optional subdomains
+  const escaped = escapeAndWildcard(trimmed);
+  return new RegExp(
+    `^https?://([^/]*\\.)?${escaped}(/.*)?$`,
+    'i',
+  );
+}
+
+/**
+ * Returns true if `url` matches any of the user-supplied patterns.
+ * Invalid patterns are logged and skipped.
+ */
+function matchesProtectedUrl(url, patterns) {
+  for (const pattern of patterns) {
+    try {
+      const regex = patternToRegex(pattern);
+      if (regex && regex.test(url)) return true;
+    } catch (e) {
+      console.warn('[Blank] Invalid pattern, skipping:', pattern, e);
+    }
+  }
+  return false;
+}
+
+// --- Pattern cache ---
+
+let cachedPatterns = [];
+
+chrome.storage.sync.get(['protectedUrls']).then((result) => {
+  cachedPatterns = result.protectedUrls || [];
+});
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.protectedUrls) {
+    cachedPatterns = changes.protectedUrls.newValue || [];
+  }
+});
+
+// --- Listeners ---
+
+// Open welcome page on first install
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
+  }
+});
+
+// Extension icon → open options
 chrome.action.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
 });
 
-// Initialize rules on startup
-chrome.runtime.onInstalled.addListener(() => {
-  updateRules();
-});
-
-// Update rules when storage changes
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'sync' && changes.protectedUrls) {
-    updateRules();
+// Interstitial sends {type:'bypass', url} before navigating
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'bypass' && sender.tab) {
+    bypassTokens.set(sender.tab.id, {
+      url: message.url,
+      expiresAt: Date.now() + BYPASS_TTL_MS,
+    });
+    sendResponse({ ok: true });
   }
 });
 
-// Update declarative net request rules based on protected URLs
-async function updateRules() {
-  try {
-    // Get current protected URLs
-    const result = await chrome.storage.sync.get(['protectedUrls']);
-    const protectedUrls = result.protectedUrls || [];
-    
-    // Remove all existing rules
-    const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
-    const removeRuleIds = existingRules.map(rule => rule.id);
-    
-    if (removeRuleIds.length > 0) {
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: removeRuleIds
-      });
-    }
-    
-    // Clear the map
-    RULE_ID_MAP.clear();
-    ruleIdCounter = 1;
-    
-    // Create new rules for each protected URL pattern
-    const addRules = [];
-    
-    for (const pattern of protectedUrls) {
-      const ruleId = ruleIdCounter++;
-      RULE_ID_MAP.set(pattern, ruleId);
-      
-      // Convert simple wildcards to proper URL filter format
-      let urlFilter = pattern;
-      // Escape special regex characters except * and |
-      urlFilter = urlFilter.replace(/[.+?^${}()[\]\\]/g, '\\$&');
-      // Convert * to .*
-      urlFilter = urlFilter.replace(/\*/g, '*');
-      
-      // Ensure the pattern matches as expected
-      if (!urlFilter.includes('://')) {
-        // If no protocol, match both http and https
-        urlFilter = '*://' + urlFilter;
-      }
-      
-      const rule = {
-        id: ruleId,
-        priority: 1,
-        action: {
-          type: 'redirect',
-          redirect: {
-            extensionPath: '/interstitial.html',
-            transform: {
-              queryTransform: {
-                addOrReplaceParams: [
-                  {
-                    key: 'url',
-                    value: '\\0'  // This will be replaced with the actual URL
-                  }
-                ]
-              }
-            }
-          }
-        },
-        condition: {
-          urlFilter: urlFilter,
-          resourceTypes: ['main_frame']
-        }
-      };
-      
-      addRules.push(rule);
-    }
-    
-    // Add all rules at once
-    if (addRules.length > 0) {
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        addRules: addRules
-      });
-    }
-    
-    console.log(`Updated ${addRules.length} redirect rules`);
-    
-  } catch (error) {
-    console.error('Error updating rules:', error);
-  }
-}
+// Clean up tokens when tabs close
+chrome.tabs.onRemoved.addListener((tabId) => {
+  bypassTokens.delete(tabId);
+});
 
-// Use webNavigation to capture the original URL and redirect properly
-chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
-  // Only process main frame navigations
+// Main interception logic
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  // Only main frame
   if (details.frameId !== 0) return;
-  
-  // Skip if we're navigating FROM our interstitial page
-  if (details.url.includes(chrome.runtime.getURL('interstitial.html'))) {
-    console.log('[Blank Extension] Skipping interstitial page navigation');
-    return;
-  }
-  
-  // Get the tab info to check if we're navigating FROM the interstitial
-  try {
-    const tab = await chrome.tabs.get(details.tabId);
-    if (tab.url && tab.url.includes(chrome.runtime.getURL('interstitial.html'))) {
-      console.log('[Blank Extension] Navigating from interstitial, allowing redirect');
-      return;
+
+  const interstitialBase = chrome.runtime.getURL('interstitial.html');
+
+  // Never intercept the interstitial itself
+  if (details.url.startsWith(interstitialBase)) return;
+
+  // Check for a valid bypass token
+  const token = bypassTokens.get(details.tabId);
+  if (token) {
+    bypassTokens.delete(details.tabId);
+    if (sameOrigin(token.url, details.url) && token.expiresAt > Date.now()) {
+      return; // token consumed, allow navigation
     }
-  } catch (e) {
-    // Tab might not exist yet, continue checking
   }
-  
-  const result = await chrome.storage.sync.get(['protectedUrls']);
-  const protectedUrls = result.protectedUrls || [];
-  
-  const isProtected = protectedUrls.some(pattern => {
-    try {
-      const regex = new RegExp(pattern.replace(/\*/g, '.*'));
-      return regex.test(details.url);
-    } catch (e) {
-      return details.url.includes(pattern);
-    }
-  });
-  
-  if (isProtected) {
-    console.log('[Blank Extension] Redirecting to interstitial for:', details.url);
-    // Redirect to interstitial with the original URL as a parameter
-    const interstitialUrl = chrome.runtime.getURL('interstitial.html') + 
-                          '?url=' + encodeURIComponent(details.url);
-    
+
+  if (matchesProtectedUrl(details.url, cachedPatterns)) {
+    const interstitialUrl =
+      interstitialBase + '?url=' + encodeURIComponent(details.url);
     chrome.tabs.update(details.tabId, { url: interstitialUrl });
   }
-}); 
+});

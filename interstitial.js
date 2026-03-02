@@ -1,122 +1,104 @@
+import { WORDS } from './words.js';
+import { PASTEL_COLORS } from './color.js';
+import { loadSettings, saveSettings, applyTheme } from './settings.js';
+import { playClick, warmupAudio } from './click.js';
+import { initWaveform } from './waveform.js';
 
 const params = new URLSearchParams(window.location.search);
 const originalUrl = params.get('url');
 
 let selectedWords = [];
 let currentColor = '';
-let isCompleted = false; 
+let isCompleted = false;
 
-const NUM_WORDS = typeof window.NUM_WORDS === 'number' ? window.NUM_WORDS : 3;
+/** @type {(() => void) | null} */
+let stopWaveform = null;
+
+/** @type {{ soundEnabled: boolean, wordCount: 3|5|7, hasTypedBefore: boolean }} */
+let settings;
 
 initializePage();
 
 async function initializePage() {
-  selectedWords = getRandomWords(NUM_WORDS);
+  settings = await loadSettings();
+  applyTheme(settings.theme);
+  selectedWords = getRandomWords(settings.wordCount);
   currentColor = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
 
-  document.getElementById('dynamicStyles').textContent = getMindfulStyles(currentColor);
+  document.documentElement.style.setProperty('--accent-color', currentColor);
   renderWords();
-  setupKeyboardListener();
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-      e.preventDefault();
-      if (chrome && chrome.runtime && chrome.runtime.openOptionsPage) {
-        chrome.runtime.openOptionsPage();
-      }
-      return;
-    }
-  });
-}
+  document.getElementById('words').focus();
 
-function getMindfulStyles(color) {
-  return `
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html, body {
-      height: 100vh;
-      width: 100vw;
-      overflow: hidden;
-      background: #f7f7f7;
-      font-family: 'Segoe UI', 'Arial', sans-serif;
-    }
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-    .column-container {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100vw;
-      height: 100vh;
-      min-height: 100vh;
-      justify-content: center;
-      overflow: hidden;
-    }
-    .words {
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      gap: 3rem;
-      font-size: 3rem;
-      font-weight: 600;
-      max-width: calc(100vw - 8rem);
-      justify-content: center;
-      align-items: center;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-    .word {
-      display: flex;
-      gap: 0.1em;
-      letter-spacing: 0.05em;
-    }
-    .letter {
-      color: #d0d0d0;
-      transition: color 0.3s ease;
-    }
-    .letter.active {
-      color: ${color};
-    }
-  `;
+  if (!settings.hasTypedBefore) {
+    renderTypingHint();
+  }
+
+  if (settings.soundEnabled) warmupAudio();
+  setupKeyboardListener();
+
+  const canvas = document.getElementById('calmWaveform');
+  stopWaveform = initWaveform(canvas);
+
+  // Fade in
+  requestAnimationFrame(() => {
+    document.querySelector('.column-container').style.opacity = '1';
+  });
 }
 
 function renderWords() {
   const wordsContainer = document.getElementById('words');
   wordsContainer.innerHTML = '';
-  
+
   selectedWords.forEach((word, index) => {
     const wordElement = document.createElement('div');
     wordElement.className = 'word';
     wordElement.dataset.word = word;
     wordElement.dataset.index = index;
-    
-    [...word].forEach(letter => {
+
+    [...word].forEach((letter) => {
       const span = document.createElement('span');
       span.textContent = letter;
       span.className = 'letter';
       wordElement.appendChild(span);
     });
-    
+
     wordsContainer.appendChild(wordElement);
   });
 }
 
+function renderTypingHint() {
+  const hint = document.createElement('div');
+  hint.id = 'typingHint';
+  hint.textContent = 'type to continue';
+  document.getElementById('words').after(hint);
+}
+
 function getRandomWords(count) {
-  const shuffled = [...WORDS].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
+  const pool = [...WORDS];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
+
+/** Toggles `.current` class on the letter at the given position. */
+function markCurrentLetter(wordIndex, letterIndex) {
+  document.querySelectorAll('.letter.current').forEach((el) => el.classList.remove('current'));
+  const word = document.querySelectorAll('.word')[wordIndex];
+  if (!word) return;
+  const letter = word.querySelectorAll('.letter')[letterIndex];
+  if (letter) letter.classList.add('current');
 }
 
 function setupKeyboardListener() {
   let currentWordIndex = 0;
   let currentLetterIndex = 0;
   let typedWords = Array(selectedWords.length).fill('');
+  let hintDismissed = false;
+
+  // Init cursor on first letter
+  markCurrentLetter(0, 0);
 
   const handleKeyPress = (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -127,32 +109,31 @@ function setupKeyboardListener() {
       return;
     }
 
-    if (isCompleted) return;
-    
-    const container = document.getElementById('words');
-    if (!container) {
+    if (
+      ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Tab', 'Escape', 'Enter', 'F5', 'F12'].includes(
+        e.key,
+      )
+    )
       return;
-    }
-    
-    if ([
-      'ArrowDown', 'ArrowUp', 'PageDown', 'PageUp',
-      'Tab', 'Escape', 'Enter', 'F5', 'F12'
-    ].includes(e.key)) return;
-    
+
+    if (isCompleted) return;
+
+    const container = document.getElementById('words');
+    if (!container) return;
+
     e.preventDefault();
     e.stopPropagation();
-    
+
     const words = document.querySelectorAll('.word');
-    if (!words || words.length === 0) {
-      return;
-    }
-    
+    if (!words || words.length === 0) return;
+
     const currentWord = words[currentWordIndex];
     const targetWord = selectedWords[currentWordIndex];
     const letters = currentWord.querySelectorAll('.letter');
-    
+
     if (e.key === 'Backspace') {
       if (currentLetterIndex > 0) {
+        if (settings.soundEnabled) playClick();
         currentLetterIndex--;
         letters[currentLetterIndex].classList.remove('active');
         typedWords[currentWordIndex] = typedWords[currentWordIndex].slice(0, -1);
@@ -160,37 +141,90 @@ function setupKeyboardListener() {
         currentWordIndex--;
         currentLetterIndex = typedWords[currentWordIndex].length;
       }
+      markCurrentLetter(currentWordIndex, currentLetterIndex);
     } else if (e.key.length === 1) {
-      if (currentLetterIndex < targetWord.length && e.key.toLowerCase() === targetWord[currentLetterIndex].toLowerCase()) {
+      if (
+        currentLetterIndex < targetWord.length &&
+        e.key.toLowerCase() === targetWord[currentLetterIndex].toLowerCase()
+      ) {
+        // Dismiss typing hint on first valid keypress
+        if (!hintDismissed) {
+          hintDismissed = true;
+          const hint = document.getElementById('typingHint');
+          if (hint) {
+            hint.style.opacity = '0';
+            hint.addEventListener('transitionend', () => hint.remove(), { once: true });
+          }
+          if (!settings.hasTypedBefore) {
+            saveSettings({ hasTypedBefore: true }); // fire-and-forget
+          }
+        }
+
+        if (settings.soundEnabled) {
+          playClick();
+        }
+
         letters[currentLetterIndex].classList.add('active');
         typedWords[currentWordIndex] += e.key;
         currentLetterIndex++;
-        
+
         if (currentLetterIndex === targetWord.length && currentWordIndex < selectedWords.length - 1) {
           currentWordIndex++;
           currentLetterIndex = 0;
-        } else if (currentLetterIndex === targetWord.length && currentWordIndex === selectedWords.length - 1) {
-          const allCorrect = typedWords.every((typed, i) => 
-            typed.toLowerCase() === selectedWords[i].toLowerCase()
+          const status = document.getElementById('a11yStatus');
+          if (status) status.textContent = `Word ${currentWordIndex} of ${selectedWords.length}`;
+        } else if (
+          currentLetterIndex === targetWord.length &&
+          currentWordIndex === selectedWords.length - 1
+        ) {
+          const allCorrect = typedWords.every(
+            (typed, i) => typed.toLowerCase() === selectedWords[i].toLowerCase(),
           );
           if (allCorrect) {
             completeTyping();
           }
         }
+
+        markCurrentLetter(currentWordIndex, currentLetterIndex);
+      } else {
+        // Wrong key — shake feedback
+        const letter = letters[currentLetterIndex];
+        if (letter) {
+          letter.classList.remove('wrong');
+          void letter.offsetWidth; // reflow trick to restart animation
+          letter.classList.add('wrong');
+          letter.addEventListener('animationend', () => letter.classList.remove('wrong'), { once: true });
+        }
       }
     }
   };
-  
+
   document.addEventListener('keydown', handleKeyPress, true);
 }
 
-function completeTyping() {
+async function completeTyping() {
   if (isCompleted) return;
   isCompleted = true;
-  
+
+  if (stopWaveform) stopWaveform();
+
+  // Fade out
+  const container = document.querySelector('.column-container');
+  if (container) {
+    container.style.opacity = '0';
+    await new Promise((resolve) => {
+      const timeout = setTimeout(resolve, 800);
+      container.addEventListener('transitionend', () => {
+        clearTimeout(timeout);
+        resolve();
+      }, { once: true });
+    });
+  }
+
   if (originalUrl) {
+    await chrome.runtime.sendMessage({ type: 'bypass', url: originalUrl });
     window.location.replace(originalUrl);
   } else {
     console.error('No original URL to redirect to!');
   }
-} 
+}

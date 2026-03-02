@@ -1,4 +1,4 @@
-const WORD_CATEGORIES = {
+export const WORD_CATEGORIES = {
   ENVIRONMENTS: [
     'forest', 'mountain', 'river', 'lake', 'ocean', 'meadow',
     'valley', 'glacier', 'spring', 'desert', 'canyon', 'plateau',
@@ -19,7 +19,7 @@ const WORD_CATEGORIES = {
   ]
 };
 
-const WORDS = Object.values(WORD_CATEGORIES).flat();
+export const WORDS = Object.values(WORD_CATEGORIES).flat();
 
 
 

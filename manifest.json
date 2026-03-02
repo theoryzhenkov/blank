@@ -1,21 +1,33 @@
 {
   "manifest_version": 3,
   "name": "Blank",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Give yourself some time to reflect before you browse",
   "permissions": [
     "storage",
     "tabs",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
     "webNavigation"
   ],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "web_accessible_resources": [{
-    "resources": ["interstitial.html", "interstitial.js", "words.js"],
+    "resources": [
+      "interstitial.html",
+      "interstitial.js",
+      "words.js",
+      "color.js",
+      "settings.js",
+      "click.js",
+      "waveform.js",
+      "welcome.html",
+      "welcome.js",
+      "fonts.css",
+      "validation.js",
+      "fonts/*"
+    ],
     "matches": ["<all_urls>"]
   }],
   "options_page": "options.html",
@@ -23,9 +35,9 @@
     "default_title": "Click to open settings"
   },
   "icons": {
-    "16": "favicon.png",
-    "32": "favicon.png",
-    "48": "favicon.png",
-    "128": "favicon.png"
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   }
-} 
+}
