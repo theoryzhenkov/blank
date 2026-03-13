@@ -91,13 +91,15 @@ chrome.action.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
 });
 
-// Interstitial sends {type:'bypass', url} before navigating
+// Interstitial sends {type:'proceed', url} — background sets token AND navigates
+// in the same context, guaranteeing the token exists when onBeforeNavigate fires.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'bypass' && sender.tab) {
+  if (message.type === 'proceed' && sender.tab) {
     bypassTokens.set(sender.tab.id, {
       url: message.url,
       expiresAt: Date.now() + BYPASS_TTL_MS,
     });
+    chrome.tabs.update(sender.tab.id, { url: message.url });
     sendResponse({ ok: true });
   }
 });
@@ -117,13 +119,12 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   // Never intercept the interstitial itself
   if (details.url.startsWith(interstitialBase)) return;
 
-  // Check for a valid bypass token
+  // Check for a valid bypass token.
+  // Don't delete on consumption — Firefox fires onBeforeNavigate multiple
+  // times for the same navigation due to process switches. Token expires via TTL.
   const token = bypassTokens.get(details.tabId);
-  if (token) {
-    bypassTokens.delete(details.tabId);
-    if (sameOrigin(token.url, details.url) && token.expiresAt > Date.now()) {
-      return; // token consumed, allow navigation
-    }
+  if (token && sameOrigin(token.url, details.url) && token.expiresAt > Date.now()) {
+    return;
   }
 
   if (matchesProtectedUrl(details.url, cachedPatterns)) {

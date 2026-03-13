@@ -1,2 +1,5 @@
 *.zip
+dist/
+
 .playwright-mcp/
+.claude

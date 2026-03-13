@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Blank",
+  "version": "2.2.0",
+  "description": "Give yourself some time to reflect before you browse",
+  "permissions": [
+    "storage",
+    "webNavigation"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [{
+    "resources": [
+      "interstitial.html",
+      "interstitial.js",
+      "words.js",
+      "color.js",
+      "settings.js",
+      "click.js",
+      "waveform.js",
+      "welcome.html",
+      "welcome.js",
+      "fonts.css",
+      "validation.js",
+      "fonts/*"
+    ],
+    "matches": ["<all_urls>"]
+  }],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Click to open settings"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

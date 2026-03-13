@@ -267,8 +267,9 @@ async function proceedToSite() {
   }
 
   if (originalUrl) {
-    await chrome.runtime.sendMessage({ type: 'bypass', url: originalUrl });
-    window.location.replace(originalUrl);
+    // Background sets the bypass token AND navigates in one step,
+    // so the token is guaranteed to exist when onBeforeNavigate fires.
+    await chrome.runtime.sendMessage({ type: 'proceed', url: originalUrl });
   } else {
     console.error('No original URL to redirect to!');
   }
