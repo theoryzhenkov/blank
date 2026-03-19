@@ -123,6 +123,22 @@ async function initSettingsUI() {
     });
   }
 
+  // Cooldown segmented buttons
+  const cooldownGroup = document.getElementById('cooldownGroup');
+  const cooldownButtons = cooldownGroup.querySelectorAll('button');
+
+  for (const btn of cooldownButtons) {
+    if (Number(btn.dataset.cooldown) === settings.cooldownMinutes) {
+      btn.classList.add('active');
+    }
+
+    btn.addEventListener('click', async () => {
+      for (const b of cooldownButtons) b.classList.remove('active');
+      btn.classList.add('active');
+      await saveSettings({ cooldownMinutes: Number(btn.dataset.cooldown) });
+    });
+  }
+
   // Sound toggle
   const soundToggle = document.getElementById('soundToggle');
   soundToggle.setAttribute('aria-checked', String(settings.soundEnabled));

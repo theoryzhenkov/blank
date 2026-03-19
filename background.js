@@ -1,12 +1,11 @@
-// Bypass tokens: Map<tabId, {url, expiresAt}>
-const bypassTokens = new Map();
-const BYPASS_TTL_MS = 30_000;
+// Cooldown map: origin → expiresAt timestamp
+// After confirming a site, further navigations to the same origin are allowed
+// until the cooldown expires. Replaces the old per-tab bypass token system.
+const cooldownMap = new Map();
 
-/** @param {string} a @param {string} b */
-function sameOrigin(a, b) {
-  try { return new URL(a).origin === new URL(b).origin; }
-  catch { return false; }
-}
+// Minimum TTL for the immediate redirect after confirmation (covers the
+// proceed → onBeforeNavigate round-trip, including Firefox multi-fire).
+const MIN_REDIRECT_TTL_MS = 5_000;
 
 /**
  * Escape regex-special chars except `*`, then convert `*` to `.*`.
@@ -63,19 +62,79 @@ function matchesProtectedUrl(url, patterns) {
   return false;
 }
 
-// --- Pattern cache ---
+// --- Settings cache ---
 
 let cachedPatterns = [];
+let cooldownMs = 10 * 60 * 1000; // default 10 minutes
 
-chrome.storage.sync.get(['protectedUrls']).then((result) => {
+chrome.storage.sync.get(['protectedUrls', 'cooldownMinutes']).then((result) => {
   cachedPatterns = result.protectedUrls || [];
+  if (result.cooldownMinutes !== undefined) {
+    cooldownMs = result.cooldownMinutes * 60 * 1000;
+  }
 });
 
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.protectedUrls) {
     cachedPatterns = changes.protectedUrls.newValue || [];
   }
+  if (changes.cooldownMinutes) {
+    cooldownMs = (changes.cooldownMinutes.newValue ?? 10) * 60 * 1000;
+  }
 });
+
+// --- Cooldown helpers ---
+
+/**
+ * Returns true if the origin of `url` is currently in cooldown
+ * (i.e. the user recently confirmed it and the cooldown hasn't expired).
+ */
+function isInCooldown(url) {
+  try {
+    const origin = new URL(url).origin;
+    const expiresAt = cooldownMap.get(origin);
+    if (!expiresAt) return false;
+    if (expiresAt > Date.now()) return true;
+    // Expired — clean up
+    cooldownMap.delete(origin);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns true if the origin of `url` had a cooldown entry that has now
+ * expired. Used for SPA re-prompting: only interrupt if the user was
+ * previously granted access and the grace period is over.
+ */
+function isCooldownExpired(url) {
+  try {
+    const origin = new URL(url).origin;
+    const expiresAt = cooldownMap.get(origin);
+    // No entry = never confirmed → don't intercept SPA navigation
+    if (!expiresAt) return false;
+    if (expiresAt > Date.now()) return false;
+    // Expired
+    cooldownMap.delete(origin);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Record that the user confirmed a protected origin. Uses the configured
+ * cooldown, with a minimum of MIN_REDIRECT_TTL_MS so the immediate
+ * redirect always succeeds.
+ */
+function setCooldown(url) {
+  try {
+    const origin = new URL(url).origin;
+    const ttl = Math.max(cooldownMs, MIN_REDIRECT_TTL_MS);
+    cooldownMap.set(origin, Date.now() + ttl);
+  } catch {}
+}
 
 // --- Listeners ---
 
@@ -91,41 +150,45 @@ chrome.action.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
 });
 
-// Interstitial sends {type:'proceed', url} — background sets token AND navigates
-// in the same context, guaranteeing the token exists when onBeforeNavigate fires.
+// Interstitial sends {type:'proceed', url} — background sets cooldown AND
+// navigates in the same context, guaranteeing the entry exists when
+// onBeforeNavigate fires.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'proceed' && sender.tab) {
-    bypassTokens.set(sender.tab.id, {
-      url: message.url,
-      expiresAt: Date.now() + BYPASS_TTL_MS,
-    });
+    setCooldown(message.url);
     chrome.tabs.update(sender.tab.id, { url: message.url });
     sendResponse({ ok: true });
   }
 });
 
-// Clean up tokens when tabs close
-chrome.tabs.onRemoved.addListener((tabId) => {
-  bypassTokens.delete(tabId);
-});
-
-// Main interception logic
+// Main interception: full page navigations (address bar, links, reload, back/forward)
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  // Only main frame
   if (details.frameId !== 0) return;
 
   const interstitialBase = chrome.runtime.getURL('interstitial.html');
-
-  // Never intercept the interstitial itself
   if (details.url.startsWith(interstitialBase)) return;
 
-  // Check for a valid bypass token.
-  // Don't delete on consumption — Firefox fires onBeforeNavigate multiple
-  // times for the same navigation due to process switches. Token expires via TTL.
-  const token = bypassTokens.get(details.tabId);
-  if (token && sameOrigin(token.url, details.url) && token.expiresAt > Date.now()) {
-    return;
+  if (isInCooldown(details.url)) return;
+
+  if (matchesProtectedUrl(details.url, cachedPatterns)) {
+    const interstitialUrl =
+      interstitialBase + '?url=' + encodeURIComponent(details.url);
+    chrome.tabs.update(details.tabId, { url: interstitialUrl });
   }
+});
+
+// SPA interception: History API navigations (pushState / replaceState)
+// Only active when cooldown is enabled (> 0). Re-prompts the user after the
+// cooldown expires, even if the page never did a full navigation.
+chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+  if (details.frameId !== 0) return;
+  if (cooldownMs === 0) return;
+
+  const interstitialBase = chrome.runtime.getURL('interstitial.html');
+  if (details.url.startsWith(interstitialBase)) return;
+
+  // Only intercept if there was a cooldown that has now expired
+  if (!isCooldownExpired(details.url)) return;
 
   if (matchesProtectedUrl(details.url, cachedPatterns)) {
     const interstitialUrl =

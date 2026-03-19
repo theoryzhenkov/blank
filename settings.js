@@ -1,5 +1,5 @@
 /** @typedef {'light' | 'dark' | 'adaptive'} Theme */
-/** @typedef {{ soundEnabled: boolean, wordCount: 3 | 5 | 7, hasTypedBefore: boolean, theme: Theme }} Settings */
+/** @typedef {{ soundEnabled: boolean, wordCount: 3 | 5 | 7, hasTypedBefore: boolean, theme: Theme, cooldownMinutes: number }} Settings */
 
 /** @type {Settings} */
 const DEFAULTS = {
@@ -7,6 +7,7 @@ const DEFAULTS = {
   wordCount: 5,
   hasTypedBefore: false,
   theme: 'light',
+  cooldownMinutes: 10,
 };
 
 const KEYS = /** @type {const} */ (Object.keys(DEFAULTS));
